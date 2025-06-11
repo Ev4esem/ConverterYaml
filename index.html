@@ -175,14 +175,6 @@
             gap: 20px;
         }
         
-        .stats {
-            background: #e6fffa;
-            color: #234e52;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-        }
-        
         .mapping-section {
             background: #f7fafc;
             border: 1px solid #e2e8f0;
@@ -294,7 +286,7 @@
         <!-- Предварительный просмотр данных -->
         <div id="previewSection" style="display: none;">
             <h3>👀 Предварительный просмотр данных</h3>
-            <div class="stats">
+            <div class="output">
                 <div id="dataStats"></div>
                 <table class="preview-table" id="previewTable">
                     <!-- Здесь будет таблица с превью -->
@@ -326,58 +318,94 @@
             { field: 'available', label: 'Доступность', required: false, type: 'boolean' }
         ];
         
-        document.getElementById('excelFile').addEventListener('change', function() {
-            // Обработчик уже добавлен ниже в коде drag & drop
-        });
-        
         function handleFileSelect(event) {
+            console.log('🔍 handleFileSelect вызван', event);
+            
             const file = event.target.files[0];
-            if (!file) return;
+            if (!file) {
+                console.log('❌ Файл не выбран');
+                return;
+            }
+            
+            console.log('📄 Файл выбран:', {
+                name: file.name,
+                size: file.size,
+                type: file.type
+            });
+            
+            // Проверяем расширение файла
+            const fileName = file.name.toLowerCase();
+            if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+                const error = 'Пожалуйста, выберите Excel файл (.xlsx или .xls)';
+                console.log('❌', error);
+                showError(error);
+                return;
+            }
             
             // Показываем индикатор загрузки
+            console.log('📂 Начинаем загрузку файла...');
             showSuccess('📂 Загрузка файла...');
             
             const reader = new FileReader();
+            
             reader.onload = function(e) {
+                console.log('📖 Файл прочитан, размер данных:', e.target.result.byteLength);
+                
                 try {
                     const data = new Uint8Array(e.target.result);
+                    console.log('🔄 Парсим Excel файл...');
+                    
                     const workbook = XLSX.read(data, { type: 'array' });
+                    console.log('📊 Workbook создан:', workbook.SheetNames);
                     
                     // Берем первый лист
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
+                    console.log('📋 Лист выбран:', sheetName);
                     
                     // Конвертируем в JSON
                     excelData = XLSX.utils.sheet_to_json(worksheet, { 
                         header: 1,
                         defval: ''
                     });
+                    console.log('📝 Данные конвертированы:', excelData.length, 'строк');
                     
                     if (excelData.length === 0) {
-                        showError('Файл пустой или не содержит данных');
+                        const error = 'Файл пустой или не содержит данных';
+                        console.log('❌', error);
+                        showError(error);
                         return;
                     }
                     
                     headers = excelData[0] || [];
                     const dataRows = excelData.slice(1);
                     
-                    console.log('Загруженные данные:', { headers, dataRows: dataRows.slice(0, 3) });
+                    console.log('✅ Данные обработаны:', { 
+                        headers: headers.length, 
+                        rows: dataRows.length,
+                        firstRow: dataRows[0]
+                    });
                     
-                    showSuccess(`✅ Файл загружен успешно! Найдено ${dataRows.length} строк данных, ${headers.length} колонок`);
+                    showSuccess('✅ Файл загружен успешно! Найдено ' + dataRows.length + ' строк данных, ' + headers.length + ' колонок');
                     
+                    console.log('🔗 Создаем сопоставление колонок...');
                     createColumnMapping();
+                    
+                    console.log('👀 Показываем превью...');
                     showPreview();
                     
                 } catch (error) {
-                    console.error('Ошибка загрузки:', error);
+                    console.error('💥 Ошибка загрузки:', error);
                     showError('Ошибка чтения файла: ' + error.message);
                 }
             };
             
-            reader.onerror = function() {
+            reader.onerror = function(error) {
+                console.error('💥 Ошибка FileReader:', error);
                 showError('Ошибка при чтении файла');
             };
             
+            console.log('📚 Начинаем чтение файла...');
             reader.readAsArrayBuffer(file);
         }
         
@@ -387,18 +415,18 @@
             
             mappingDiv.innerHTML = '';
             
-            ymlFields.forEach(field => {
+            ymlFields.forEach(function(field) {
                 const row = document.createElement('div');
                 row.className = 'mapping-row';
                 
                 const fieldLabel = document.createElement('div');
-                fieldLabel.innerHTML = `<strong>${field.label}</strong>${field.required ? ' <span style="color: red;">*</span>' : ''}`;
+                fieldLabel.innerHTML = '<strong>' + field.label + '</strong>' + (field.required ? ' <span style="color: red;">*</span>' : '');
                 
                 const select = document.createElement('select');
-                select.id = `mapping_${field.field}`;
+                select.id = 'mapping_' + field.field;
                 select.innerHTML = '<option value="">-- Не использовать --</option>';
                 
-                headers.forEach((header, index) => {
+                headers.forEach(function(header, index) {
                     const option = document.createElement('option');
                     option.value = index;
                     option.textContent = header;
@@ -406,15 +434,18 @@
                 });
                 
                 // Автоматическое сопоставление по названию
-                const autoMatch = headers.findIndex(h => 
-                    h.toLowerCase().includes(field.field.toLowerCase()) ||
-                    (field.field === 'id' && (h.toLowerCase().includes('артикул') || h.toLowerCase().includes('код') || h.toLowerCase().includes('id'))) ||
-                    (field.field === 'name' && (h.toLowerCase().includes('название') || h.toLowerCase().includes('наименование') || h.toLowerCase().includes('name'))) ||
-                    (field.field === 'price' && (h.toLowerCase().includes('цена') || h.toLowerCase().includes('price'))) ||
-                    (field.field === 'description' && (h.toLowerCase().includes('описание') || h.toLowerCase().includes('description'))) ||
-                    (field.field === 'picture' && (h.toLowerCase().includes('изображения') || h.toLowerCase().includes('imageurls') || h.toLowerCase().includes('picture'))) ||
-                    (field.field === 'categoryId' && (h.toLowerCase().includes('категория') || h.toLowerCase().includes('category')))
-                );
+                const autoMatch = headers.findIndex(function(h) {
+                    const headerLower = h.toLowerCase();
+                    const fieldLower = field.field.toLowerCase();
+                    
+                    return headerLower.includes(fieldLower) ||
+                        (field.field === 'id' && (headerLower.includes('артикул') || headerLower.includes('код') || headerLower.includes('id'))) ||
+                        (field.field === 'name' && (headerLower.includes('название') || headerLower.includes('наименование') || headerLower.includes('name'))) ||
+                        (field.field === 'price' && (headerLower.includes('цена') || headerLower.includes('price'))) ||
+                        (field.field === 'description' && (headerLower.includes('описание') || headerLower.includes('description'))) ||
+                        (field.field === 'picture' && (headerLower.includes('изображения') || headerLower.includes('imageurls') || headerLower.includes('picture'))) ||
+                        (field.field === 'categoryId' && (headerLower.includes('категория') || headerLower.includes('category')));
+                });
                 
                 if (autoMatch !== -1) {
                     select.value = autoMatch;
@@ -459,25 +490,22 @@
             
             const dataRows = excelData.slice(1, 6); // Показываем первые 5 строк
             
-            dataStats.innerHTML = `
-                <strong>Статистика:</strong> 
-                Всего строк: ${excelData.length - 1} | 
-                Колонок: ${headers.length} |
-                Показано: ${Math.min(5, dataRows.length)} строк
-            `;
+            dataStats.innerHTML = '<strong>Статистика:</strong> Всего строк: ' + (excelData.length - 1) + ' | Колонок: ' + headers.length + ' | Показано: ' + Math.min(5, dataRows.length) + ' строк';
             
             // Создаем таблицу превью
             let tableHTML = '<thead><tr>';
-            headers.forEach(header => {
-                tableHTML += `<th>${header}</th>`;
+            headers.forEach(function(header) {
+                tableHTML += '<th>' + header + '</th>';
             });
             tableHTML += '</tr></thead><tbody>';
             
-            dataRows.forEach(row => {
+            dataRows.forEach(function(row) {
                 tableHTML += '<tr>';
-                headers.forEach((header, index) => {
+                headers.forEach(function(header, index) {
                     const cellValue = row[index] || '';
-                    tableHTML += `<td>${String(cellValue).substring(0, 50)}${String(cellValue).length > 50 ? '...' : ''}</td>`;
+                    const cellText = String(cellValue).substring(0, 50);
+                    const truncated = String(cellValue).length > 50 ? '...' : '';
+                    tableHTML += '<td>' + cellText + truncated + '</td>';
                 });
                 tableHTML += '</tr>';
             });
@@ -497,19 +525,20 @@
             try {
                 // Получаем настройки сопоставления
                 const mapping = {};
-                ymlFields.forEach(field => {
-                    const select = document.getElementById(`mapping_${field.field}`);
+                ymlFields.forEach(function(field) {
+                    const select = document.getElementById('mapping_' + field.field);
                     if (select.value !== '') {
                         mapping[field.field] = parseInt(select.value);
                     }
                 });
                 
                 // Проверяем обязательные поля
-                const requiredFields = ymlFields.filter(f => f.required);
-                const missingRequired = requiredFields.filter(f => !(f.field in mapping));
+                const requiredFields = ymlFields.filter(function(f) { return f.required; });
+                const missingRequired = requiredFields.filter(function(f) { return !(f.field in mapping); });
                 
                 if (missingRequired.length > 0) {
-                    showError(`Не указаны обязательные поля: ${missingRequired.map(f => f.label).join(', ')}`);
+                    const missingLabels = missingRequired.map(function(f) { return f.label; }).join(', ');
+                    showError('Не указаны обязательные поля: ' + missingLabels);
                     return;
                 }
                 
@@ -538,107 +567,110 @@
         function createYMLCatalog(dataRows, mapping, shopInfo) {
             const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
             
-            let yml = `<?xml version="1.0" encoding="UTF-8"?>
-<yml_catalog date="${currentDate}">
-<shop>
-<name>${escapeXML(shopInfo.name)}</name>
-<company>${escapeXML(shopInfo.company)}</company>
-<url>${escapeXML(shopInfo.url)}</url>
-<currencies>
-<currency id="${shopInfo.currency}" rate="1"/>
-</currencies>
-<categories>`;
+            let yml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            yml += '<yml_catalog date="' + currentDate + '">\n';
+            yml += '<shop>\n';
+            yml += '<name>' + escapeXML(shopInfo.name) + '</name>\n';
+            yml += '<company>' + escapeXML(shopInfo.company) + '</company>\n';
+            yml += '<url>' + escapeXML(shopInfo.url) + '</url>\n';
+            yml += '<currencies>\n';
+            yml += '<currency id="' + shopInfo.currency + '" rate="1"/>\n';
+            yml += '</currencies>\n';
+            yml += '<categories>\n';
 
             // Собираем уникальные категории
-            const categories = new Set();
-            dataRows.forEach(row => {
+            const categories = [];
+            dataRows.forEach(function(row) {
                 if (mapping.categoryId !== undefined) {
                     const categoryId = row[mapping.categoryId];
-                    if (categoryId) {
-                        categories.add(categoryId);
+                    if (categoryId && categories.indexOf(categoryId) === -1) {
+                        categories.push(categoryId);
                     }
                 }
             });
             
             // Добавляем категории
-            Array.from(categories).forEach((categoryId, index) => {
-                yml += `
-<category id="${escapeXML(categoryId)}">${escapeXML(categoryId)}</category>`;
+            categories.forEach(function(categoryId) {
+                yml += '<category id="' + escapeXML(categoryId) + '">' + escapeXML(categoryId) + '</category>\n';
             });
             
-            yml += `
-</categories>
-<offers>`;
+            yml += '</categories>\n';
+            yml += '<offers>\n';
 
             // Добавляем товары
-            dataRows.forEach((row, index) => {
+            dataRows.forEach(function(row, index) {
                 const offer = createOfferFromRow(row, mapping, index + 1, shopInfo);
                 if (offer) {
                     yml += offer;
                 }
             });
             
-            yml += `
-</offers>
-</shop>
-</yml_catalog>`;
+            yml += '</offers>\n';
+            yml += '</shop>\n';
+            yml += '</yml_catalog>';
             
             return yml;
         }
         
-        function createOfferFromRow(row, mapping, defaultId) {
+        function createOfferFromRow(row, mapping, defaultId, shopInfo) {
             // Проверяем обязательные поля
             const id = row[mapping.id] || defaultId;
             const name = row[mapping.name];
-            const price = row[mapping.price];
+            let price = row[mapping.price];
             const categoryId = row[mapping.categoryId];
             
             if (!name || !price || !categoryId) {
                 return null; // Пропускаем строки без обязательных данных
             }
             
-            let offer = `
-<offer id="${escapeXML(id)}" available="true">`;
+            // Увеличиваем цену на 10% и красиво округляем
+            price = beautifyPrice(parseFloat(price) * 1.1);
             
-            // URL товара
-            if (mapping.url !== undefined && row[mapping.url]) {
-                offer += `
-<url>${escapeXML(row[mapping.url])}</url>`;
-            }
+            let offer = '\n<offer id="' + escapeXML(id) + '" available="true">';
             
-            offer += `
-<price>${escapeXML(price)}</price>
-<currencyId>${document.getElementById('currencyId').value}</currencyId>
-<categoryId>${escapeXML(categoryId)}</categoryId>`;
+            // URL товара - формируем автоматически
+            const productUrl = shopInfo.productUrlTemplate.replace('{ID}', id);
+            offer += '\n<url>' + escapeXML(productUrl) + '</url>';
             
-            // Изображения
+            offer += '\n<price>' + price + '</price>';
+            offer += '\n<currencyId>' + shopInfo.currency + '</currencyId>';
+            offer += '\n<categoryId>' + escapeXML(categoryId) + '</categoryId>';
+            
+            // Изображения из ImageUrls - разделены символом |
             if (mapping.picture !== undefined && row[mapping.picture]) {
-                const pictures = String(row[mapping.picture]).split(';');
-                pictures.forEach(pic => {
-                    if (pic.trim()) {
-                        offer += `
-<picture>${escapeXML(pic.trim())}</picture>`;
+                const pictureData = String(row[mapping.picture]);
+                // Разделяем по символу | и удаляем пустые
+                const pictures = pictureData.split('|');
+                pictures.forEach(function(pic) {
+                    const trimmedPic = pic.trim();
+                    if (trimmedPic) {
+                        offer += '\n<picture>' + escapeXML(trimmedPic) + '</picture>';
                     }
                 });
             }
             
-            offer += `
-<name>${escapeXML(name)}</name>`;
+            offer += '\n<name>' + escapeXML(name) + '</name>';
             
-            // Описание
+            // Описание с заменой названия магазина
             if (mapping.description !== undefined && row[mapping.description]) {
-                offer += `
-<description>${escapeXML(row[mapping.description])}</description>`;
+                let description = String(row[mapping.description]);
+                // Заменяем различные варианты названий магазинов на "MG Parts"
+                description = description
+                    .replace(/\b[A-Za-zА-Яа-я0-9\s\-\.]+\s*(parts?|запчасти|магазин|shop|store)\b/gi, 'MG Parts')
+                    .replace(/\b(наш|наша|нашего|нашей)\s+(магазин|компания|организация|фирма)\b/gi, 'MG Parts')
+                    .replace(/\b(в|у)\s+нас\b/gi, 'у MG Parts')
+                    .replace(/\bмы\s+(предлагаем|продаем|реализуем)\b/gi, 'MG Parts предлагает');
+                
+                offer += '\n<description>' + escapeXML(description) + '</description>';
             }
             
             // Старая цена
             if (mapping.oldprice !== undefined && row[mapping.oldprice]) {
-                offer += `
-<oldprice>${escapeXML(row[mapping.oldprice])}</oldprice>`;
+                let oldPrice = beautifyPrice(parseFloat(row[mapping.oldprice]) * 1.1);
+                offer += '\n<oldprice>' + oldPrice + '</oldprice>';
             }
             
-            offer += `
-</offer>`;
+            offer += '\n</offer>';
             
             return offer;
         }
@@ -675,6 +707,8 @@
             // Для больших цен - округляем до 1000
             return Math.round(price / 1000) * 1000;
         }
+        
+        function escapeXML(str) {
             if (str === null || str === undefined) return '';
             return String(str)
                 .replace(/&/g, '&amp;')
@@ -686,105 +720,12 @@
         
         function displayYML(ymlData) {
             const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = `
-                <div class="output">
-                    <h3>📄 Сгенерированный YML каталог:</h3>
-                    <div class="xml-output">${escapeHTML(ymlData)}</div>
-                </div>
-            `;
+            outputDiv.innerHTML = '<div class="output"><h3>📄 Сгенерированный YML каталог:</h3><div class="xml-output">' + escapeHTML(ymlData) + '</div></div>';
         }
         
         function escapeHTML(str) {
             return str
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+                .replace(/>/g, '&gt;'); 
         }
-        
-        function downloadYML() {
-            if (!currentYmlData) return;
-            
-            const blob = new Blob([currentYmlData], { type: 'application/xml; charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'catalog.yml';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        function showError(message) {
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
-        }
-        
-        function showSuccess(message) {
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = `<div class="success">✅ ${message}</div>`;
-        }
-        
-        // Обработка drag & drop
-        const fileInputDisplay = document.querySelector('.file-input-display');
-        const fileInput = document.getElementById('excelFile');
-        
-        fileInputDisplay.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileInputDisplay.style.borderColor = '#667eea';
-            fileInputDisplay.style.background = '#f0f2ff';
-        });
-        
-        fileInputDisplay.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-        
-        fileInputDisplay.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileInputDisplay.style.borderColor = '#e1e1e1';
-            fileInputDisplay.style.background = '#f8f9fa';
-        });
-        
-        fileInputDisplay.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileInputDisplay.style.borderColor = '#e1e1e1';
-            fileInputDisplay.style.background = '#f8f9fa';
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                // Проверяем тип файла
-                const file = files[0];
-                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    fileInput.files = files;
-                    handleFileSelect({ target: { files: files } });
-                    
-                    // Обновляем текст
-                    const span = fileInputDisplay.querySelector('span:last-child');
-                    span.textContent = `Файл загружен: ${file.name}`;
-                } else {
-                    showError('Пожалуйста, выберите Excel файл (.xlsx или .xls)');
-                }
-            }
-        });
-        
-        // Обработка клика по области
-        fileInputDisplay.addEventListener('click', () => {
-            fileInput.click();
-        });
-        
-        // Обновление текста при выборе файла через кнопку
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const fileName = e.target.files[0].name;
-                const span = fileInputDisplay.querySelector('span:last-child');
-                span.textContent = `Файл выбран: ${fileName}`;
-            }
-            handleFileSelect(e);
-        });
-    </script>
-</body>
-</html>
