@@ -326,11 +326,16 @@
             { field: 'available', label: 'Доступность', required: false, type: 'boolean' }
         ];
         
-        document.getElementById('excelFile').addEventListener('change', handleFileSelect);
+        document.getElementById('excelFile').addEventListener('change', function() {
+            // Обработчик уже добавлен ниже в коде drag & drop
+        });
         
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
+            // Показываем индикатор загрузки
+            showSuccess('📂 Загрузка файла...');
             
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -356,14 +361,21 @@
                     headers = excelData[0] || [];
                     const dataRows = excelData.slice(1);
                     
-                    showSuccess(`Файл загружен успешно! Найдено ${dataRows.length} строк данных`);
+                    console.log('Загруженные данные:', { headers, dataRows: dataRows.slice(0, 3) });
+                    
+                    showSuccess(`✅ Файл загружен успешно! Найдено ${dataRows.length} строк данных, ${headers.length} колонок`);
                     
                     createColumnMapping();
                     showPreview();
                     
                 } catch (error) {
+                    console.error('Ошибка загрузки:', error);
                     showError('Ошибка чтения файла: ' + error.message);
                 }
+            };
+            
+            reader.onerror = function() {
+                showError('Ошибка при чтении файла');
             };
             
             reader.readAsArrayBuffer(file);
@@ -715,28 +727,63 @@
         
         // Обработка drag & drop
         const fileInputDisplay = document.querySelector('.file-input-display');
+        const fileInput = document.getElementById('excelFile');
         
         fileInputDisplay.addEventListener('dragover', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             fileInputDisplay.style.borderColor = '#667eea';
             fileInputDisplay.style.background = '#f0f2ff';
         });
         
-        fileInputDisplay.addEventListener('dragleave', () => {
+        fileInputDisplay.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        fileInputDisplay.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             fileInputDisplay.style.borderColor = '#e1e1e1';
             fileInputDisplay.style.background = '#f8f9fa';
         });
         
         fileInputDisplay.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             fileInputDisplay.style.borderColor = '#e1e1e1';
             fileInputDisplay.style.background = '#f8f9fa';
             
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                document.getElementById('excelFile').files = files;
-                handleFileSelect({ target: { files: files } });
+                // Проверяем тип файла
+                const file = files[0];
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    fileInput.files = files;
+                    handleFileSelect({ target: { files: files } });
+                    
+                    // Обновляем текст
+                    const span = fileInputDisplay.querySelector('span:last-child');
+                    span.textContent = `Файл загружен: ${file.name}`;
+                } else {
+                    showError('Пожалуйста, выберите Excel файл (.xlsx или .xls)');
+                }
             }
+        });
+        
+        // Обработка клика по области
+        fileInputDisplay.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Обновление текста при выборе файла через кнопку
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                const span = fileInputDisplay.querySelector('span:last-child');
+                span.textContent = `Файл выбран: ${fileName}`;
+            }
+            handleFileSelect(e);
         });
     </script>
 </body>
