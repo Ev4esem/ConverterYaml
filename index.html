@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to YML Catalog Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-display {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border: 2px dashed #e1e1e1;
+            border-radius: 10px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-display:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+        
+        .file-icon {
+            margin-right: 10px;
+            font-size: 24px;
+        }
+        
+        .output {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .xml-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background: #c6f6d5;
+            color: #2f855a;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .info {
+            background: #bee3f8;
+            color: #2c5282;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .stats {
+            background: #e6fffa;
+            color: #234e52;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .mapping-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .mapping-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .preview-table th,
+        .preview-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        .preview-table th {
+            background: #f7fafc;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .mapping-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Excel ➡️ YML Каталог</h1>
+        
+        <div class="info">
+            <strong>Инструкция:</strong><br>
+            1. Загрузите Excel файл с товарами<br>
+            2. Настройте соответствие колонок<br>
+            3. Введите информацию о магазине<br>
+            4. Получите готовый YML каталог
+        </div>
+        
+        <!-- Загрузка файла -->
+        <div class="form-group">
+            <label for="excelFile">📁 Загрузить Excel файл:</label>
+            <div class="file-input-wrapper">
+                <input type="file" id="excelFile" class="file-input" accept=".xlsx,.xls" required>
+                <div class="file-input-display">
+                    <span class="file-icon">📄</span>
+                    <span>Выберите Excel файл или перетащите сюда</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Информация о магазине -->
+        <div class="mapping-section">
+            <h3>🏪 Информация о магазине</h3>
+            <div class="grid">
+                <div class="form-group">
+                    <label for="shopName">Название магазина:</label>
+                    <input type="text" id="shopName" value="MG parts" placeholder="Название вашего магазина">
+                </div>
+                <div class="form-group">
+                    <label for="shopCompany">Компания:</label>
+                    <input type="text" id="shopCompany" value="MG parts" placeholder="Название компании">
+                </div>
+                <div class="form-group">
+                    <label for="shopUrl">URL магазина:</label>
+                    <input type="url" id="shopUrl" value="https://mgparts-shop.ru" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="currencyId">Валюта:</label>
+                    <input type="text" id="currencyId" value="RUR" placeholder="RUR, USD, EUR">
+                </div>
+            </div>
+        </div>
+
+        <!-- Настройка соответствия колонок -->
+        <div class="mapping-section" id="mappingSection" style="display: none;">
+            <h3>🔗 Соответствие колонок Excel и YML полей</h3>
+            <div id="columnMapping">
+                <!-- Здесь будут добавляться настройки соответствий -->
+            </div>
+        </div>
+
+        <!-- Предварительный просмотр данных -->
+        <div id="previewSection" style="display: none;">
+            <h3>👀 Предварительный просмотр данных</h3>
+            <div class="stats">
+                <div id="dataStats"></div>
+                <table class="preview-table" id="previewTable">
+                    <!-- Здесь будет таблица с превью -->
+                </table>
+            </div>
+        </div>
+        
+        <button onclick="generateYML()" id="generateBtn" style="display: none;">🚀 Сгенерировать YML каталог</button>
+        <button onclick="downloadYML()" id="downloadBtn" style="display: none;">💾 Скачать YML файл</button>
+        
+        <div id="output"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let excelData = null;
+        let headers = [];
+        let currentYmlData = '';
+        
+        const ymlFields = [
+            { field: 'id', label: 'ID товара', required: true, type: 'text' },
+            { field: 'name', label: 'Название товара', required: true, type: 'text' },
+            { field: 'price', label: 'Цена (Price)', required: true, type: 'number' },
+            { field: 'categoryId', label: 'ID категории', required: true, type: 'text' },
+            { field: 'description', label: 'Описание (Description)', required: false, type: 'text' },
+            { field: 'picture', label: 'Изображения (ImageUrls)', required: false, type: 'text' },
+            { field: 'url', label: 'URL товара', required: false, type: 'text' },
+            { field: 'oldprice', label: 'Старая цена', required: false, type: 'number' },
+            { field: 'available', label: 'Доступность', required: false, type: 'boolean' }
+        ];
+        
+        document.getElementById('excelFile').addEventListener('change', handleFileSelect);
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Берем первый лист
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    
+                    // Конвертируем в JSON
+                    excelData = XLSX.utils.sheet_to_json(worksheet, { 
+                        header: 1,
+                        defval: ''
+                    });
+                    
+                    if (excelData.length === 0) {
+                        showError('Файл пустой или не содержит данных');
+                        return;
+                    }
+                    
+                    headers = excelData[0] || [];
+                    const dataRows = excelData.slice(1);
+                    
+                    showSuccess(`Файл загружен успешно! Найдено ${dataRows.length} строк данных`);
+                    
+                    createColumnMapping();
+                    showPreview();
+                    
+                } catch (error) {
+                    showError('Ошибка чтения файла: ' + error.message);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function createColumnMapping() {
+            const mappingDiv = document.getElementById('columnMapping');
+            const mappingSection = document.getElementById('mappingSection');
+            
+            mappingDiv.innerHTML = '';
+            
+            ymlFields.forEach(field => {
+                const row = document.createElement('div');
+                row.className = 'mapping-row';
+                
+                const fieldLabel = document.createElement('div');
+                fieldLabel.innerHTML = `<strong>${field.label}</strong>${field.required ? ' <span style="color: red;">*</span>' : ''}`;
+                
+                const select = document.createElement('select');
+                select.id = `mapping_${field.field}`;
+                select.innerHTML = '<option value="">-- Не использовать --</option>';
+                
+                headers.forEach((header, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = header;
+                    select.appendChild(option);
+                });
+                
+                // Автоматическое сопоставление по названию
+                const autoMatch = headers.findIndex(h => 
+                    h.toLowerCase().includes(field.field.toLowerCase()) ||
+                    (field.field === 'id' && (h.toLowerCase().includes('артикул') || h.toLowerCase().includes('код') || h.toLowerCase().includes('id'))) ||
+                    (field.field === 'name' && (h.toLowerCase().includes('название') || h.toLowerCase().includes('наименование') || h.toLowerCase().includes('name'))) ||
+                    (field.field === 'price' && (h.toLowerCase().includes('цена') || h.toLowerCase().includes('price'))) ||
+                    (field.field === 'description' && (h.toLowerCase().includes('описание') || h.toLowerCase().includes('description'))) ||
+                    (field.field === 'picture' && (h.toLowerCase().includes('изображения') || h.toLowerCase().includes('imageurls') || h.toLowerCase().includes('picture'))) ||
+                    (field.field === 'categoryId' && (h.toLowerCase().includes('категория') || h.toLowerCase().includes('category')))
+                );
+                
+                if (autoMatch !== -1) {
+                    select.value = autoMatch;
+                }
+                
+                const info = document.createElement('div');
+                info.style.fontSize = '12px';
+                info.style.color = '#666';
+                info.textContent = getFieldDescription(field.field);
+                
+                row.appendChild(fieldLabel);
+                row.appendChild(select);
+                row.appendChild(info);
+                
+                mappingDiv.appendChild(row);
+            });
+            
+            mappingSection.style.display = 'block';
+        }
+        
+        function getFieldDescription(field) {
+            const descriptions = {
+                'id': 'Уникальный идентификатор товара',
+                'name': 'Название товара',
+                'price': 'Цена (будет увеличена на 10%)',
+                'categoryId': 'Идентификатор категории',
+                'description': 'Описание товара (название магазина заменится на MG Parts)',
+                'picture': 'URL изображений из поля ImageUrls (через ; или запятую)',
+                'url': 'Ссылка на товар',
+                'oldprice': 'Старая цена (для отображения скидки)',
+                'available': 'true/false или 1/0'
+            };
+            return descriptions[field] || '';
+        }
+        
+        function showPreview() {
+            if (!excelData || excelData.length < 2) return;
+            
+            const previewSection = document.getElementById('previewSection');
+            const dataStats = document.getElementById('dataStats');
+            const previewTable = document.getElementById('previewTable');
+            
+            const dataRows = excelData.slice(1, 6); // Показываем первые 5 строк
+            
+            dataStats.innerHTML = `
+                <strong>Статистика:</strong> 
+                Всего строк: ${excelData.length - 1} | 
+                Колонок: ${headers.length} |
+                Показано: ${Math.min(5, dataRows.length)} строк
+            `;
+            
+            // Создаем таблицу превью
+            let tableHTML = '<thead><tr>';
+            headers.forEach(header => {
+                tableHTML += `<th>${header}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+            
+            dataRows.forEach(row => {
+                tableHTML += '<tr>';
+                headers.forEach((header, index) => {
+                    const cellValue = row[index] || '';
+                    tableHTML += `<td>${String(cellValue).substring(0, 50)}${String(cellValue).length > 50 ? '...' : ''}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+            tableHTML += '</tbody>';
+            
+            previewTable.innerHTML = tableHTML;
+            previewSection.style.display = 'block';
+            document.getElementById('generateBtn').style.display = 'block';
+        }
+        
+        function generateYML() {
+            if (!excelData || excelData.length < 2) {
+                showError('Нет данных для генерации');
+                return;
+            }
+            
+            try {
+                // Получаем настройки сопоставления
+                const mapping = {};
+                ymlFields.forEach(field => {
+                    const select = document.getElementById(`mapping_${field.field}`);
+                    if (select.value !== '') {
+                        mapping[field.field] = parseInt(select.value);
+                    }
+                });
+                
+                // Проверяем обязательные поля
+                const requiredFields = ymlFields.filter(f => f.required);
+                const missingRequired = requiredFields.filter(f => !(f.field in mapping));
+                
+                if (missingRequired.length > 0) {
+                    showError(`Не указаны обязательные поля: ${missingRequired.map(f => f.label).join(', ')}`);
+                    return;
+                }
+                
+                // Получаем информацию о магазине
+                const shopInfo = {
+                    name: document.getElementById('shopName').value || 'My Shop',
+                    company: document.getElementById('shopCompany').value || 'My Company',
+                    url: document.getElementById('shopUrl').value || 'https://example.com',
+                    currency: document.getElementById('currencyId').value || 'RUR'
+                };
+                
+                // Создаем YML каталог
+                const yml = createYMLCatalog(excelData.slice(1), mapping, shopInfo);
+                currentYmlData = yml;
+                
+                showSuccess('YML каталог успешно создан!');
+                displayYML(yml);
+                document.getElementById('downloadBtn').style.display = 'block';
+                
+            } catch (error) {
+                showError('Ошибка при создании YML: ' + error.message);
+            }
+        }
+        
+        function createYMLCatalog(dataRows, mapping, shopInfo) {
+            const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            
+            let yml = `<?xml version="1.0" encoding="UTF-8"?>
+<yml_catalog date="${currentDate}">
+<shop>
+<name>${escapeXML(shopInfo.name)}</name>
+<company>${escapeXML(shopInfo.company)}</company>
+<url>${escapeXML(shopInfo.url)}</url>
+<currencies>
+<currency id="${shopInfo.currency}" rate="1"/>
+</currencies>
+<categories>`;
+
+            // Собираем уникальные категории
+            const categories = new Set();
+            dataRows.forEach(row => {
+                if (mapping.categoryId !== undefined) {
+                    const categoryId = row[mapping.categoryId];
+                    if (categoryId) {
+                        categories.add(categoryId);
+                    }
+                }
+            });
+            
+            // Добавляем категории
+            Array.from(categories).forEach((categoryId, index) => {
+                yml += `
+<category id="${escapeXML(categoryId)}">${escapeXML(categoryId)}</category>`;
+            });
+            
+            yml += `
+</categories>
+<offers>`;
+
+            // Добавляем товары
+            dataRows.forEach((row, index) => {
+                const offer = createOfferFromRow(row, mapping, index + 1);
+                if (offer) {
+                    yml += offer;
+                }
+            });
+            
+            yml += `
+</offers>
+</shop>
+</yml_catalog>`;
+            
+            return yml;
+        }
+        
+        function createOfferFromRow(row, mapping, defaultId) {
+            // Проверяем обязательные поля
+            const id = row[mapping.id] || defaultId;
+            const name = row[mapping.name];
+            const price = row[mapping.price];
+            const categoryId = row[mapping.categoryId];
+            
+            if (!name || !price || !categoryId) {
+                return null; // Пропускаем строки без обязательных данных
+            }
+            
+            let offer = `
+<offer id="${escapeXML(id)}" available="true">`;
+            
+            // URL товара
+            if (mapping.url !== undefined && row[mapping.url]) {
+                offer += `
+<url>${escapeXML(row[mapping.url])}</url>`;
+            }
+            
+            offer += `
+<price>${escapeXML(price)}</price>
+<currencyId>${document.getElementById('currencyId').value}</currencyId>
+<categoryId>${escapeXML(categoryId)}</categoryId>`;
+            
+            // Изображения
+            if (mapping.picture !== undefined && row[mapping.picture]) {
+                const pictures = String(row[mapping.picture]).split(';');
+                pictures.forEach(pic => {
+                    if (pic.trim()) {
+                        offer += `
+<picture>${escapeXML(pic.trim())}</picture>`;
+                    }
+                });
+            }
+            
+            offer += `
+<name>${escapeXML(name)}</name>`;
+            
+            // Описание
+            if (mapping.description !== undefined && row[mapping.description]) {
+                offer += `
+<description>${escapeXML(row[mapping.description])}</description>`;
+            }
+            
+            // Старая цена
+            if (mapping.oldprice !== undefined && row[mapping.oldprice]) {
+                offer += `
+<oldprice>${escapeXML(row[mapping.oldprice])}</oldprice>`;
+            }
+            
+            offer += `
+</offer>`;
+            
+            return offer;
+        }
+        
+        function escapeXML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        
+        function displayYML(ymlData) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `
+                <div class="output">
+                    <h3>📄 Сгенерированный YML каталог:</h3>
+                    <div class="xml-output">${escapeHTML(ymlData)}</div>
+                </div>
+            `;
+        }
+        
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+        
+        function downloadYML() {
+            if (!currentYmlData) return;
+            
+            const blob = new Blob([currentYmlData], { type: 'application/xml; charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'catalog.yml';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function showError(message) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+        
+        function showSuccess(message) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<div class="success">✅ ${message}</div>`;
+        }
+        
+        // Обработка drag & drop
+        const fileInputDisplay = document.querySelector('.file-input-display');
+        
+        fileInputDisplay.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileInputDisplay.style.borderColor = '#667eea';
+            fileInputDisplay.style.background = '#f0f2ff';
+        });
+        
+        fileInputDisplay.addEventListener('dragleave', () => {
+            fileInputDisplay.style.borderColor = '#e1e1e1';
+            fileInputDisplay.style.background = '#f8f9fa';
+        });
+        
+        fileInputDisplay.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileInputDisplay.style.borderColor = '#e1e1e1';
+            fileInputDisplay.style.background = '#f8f9fa';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('excelFile').files = files;
+                handleFileSelect({ target: { files: files } });
+            }
+        });
+    </script>
+</body>
+</html>
