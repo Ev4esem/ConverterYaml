@@ -272,6 +272,11 @@
                     <input type="url" id="shopUrl" value="https://mgparts-shop.ru" placeholder="https://example.com">
                 </div>
                 <div class="form-group">
+                    <label for="productUrlTemplate">Шаблон URL товара:</label>
+                    <input type="text" id="productUrlTemplate" value="https://mgparts-shop.ru/products/{ID}" placeholder="https://example.com/products/{ID}">
+                    <small style="color: #666; font-size: 12px;">Используйте {ID} для подстановки ID товара</small>
+                </div>
+                <div class="form-group">
                     <label for="currencyId">Валюта:</label>
                     <input type="text" id="currencyId" value="RUR" placeholder="RUR, USD, EUR">
                 </div>
@@ -316,7 +321,7 @@
             { field: 'categoryId', label: 'ID категории', required: true, type: 'text' },
             { field: 'description', label: 'Описание (Description)', required: false, type: 'text' },
             { field: 'picture', label: 'Изображения (ImageUrls)', required: false, type: 'text' },
-            { field: 'url', label: 'URL товара', required: false, type: 'text' },
+            { field: 'url', label: 'URL товара (будет сформирован автоматически)', required: false, type: 'text' },
             { field: 'oldprice', label: 'Старая цена', required: false, type: 'number' },
             { field: 'available', label: 'Доступность', required: false, type: 'boolean' }
         ];
@@ -422,11 +427,11 @@
             const descriptions = {
                 'id': 'Уникальный идентификатор товара',
                 'name': 'Название товара',
-                'price': 'Цена (будет увеличена на 10%)',
+                'price': 'Цена (будет увеличена на 10% и красиво округлена)',
                 'categoryId': 'Идентификатор категории',
                 'description': 'Описание товара (название магазина заменится на MG Parts)',
-                'picture': 'URL изображений из поля ImageUrls (через ; или запятую)',
-                'url': 'Ссылка на товар',
+                'picture': 'URL изображений из поля ImageUrls (разделены символом |)',
+                'url': 'Ссылка на товар (будет сформирована автоматически из шаблона)',
                 'oldprice': 'Старая цена (для отображения скидки)',
                 'available': 'true/false или 1/0'
             };
@@ -501,7 +506,8 @@
                     name: document.getElementById('shopName').value || 'My Shop',
                     company: document.getElementById('shopCompany').value || 'My Company',
                     url: document.getElementById('shopUrl').value || 'https://example.com',
-                    currency: document.getElementById('currencyId').value || 'RUR'
+                    currency: document.getElementById('currencyId').value || 'RUR',
+                    productUrlTemplate: document.getElementById('productUrlTemplate').value || 'https://example.com/products/{ID}'
                 };
                 
                 // Создаем YML каталог
@@ -554,7 +560,7 @@
 
             // Добавляем товары
             dataRows.forEach((row, index) => {
-                const offer = createOfferFromRow(row, mapping, index + 1);
+                const offer = createOfferFromRow(row, mapping, index + 1, shopInfo);
                 if (offer) {
                     yml += offer;
                 }
@@ -625,7 +631,38 @@
             return offer;
         }
         
-        function escapeXML(str) {
+        function beautifyPrice(price) {
+            // Функция для красивого округления цен
+            if (price <= 0) return 0;
+            
+            // Если цена меньше 100 - округляем до 10
+            if (price < 100) {
+                return Math.round(price / 10) * 10;
+            }
+            
+            // Если цена меньше 1000 - округляем до 50
+            if (price < 1000) {
+                return Math.round(price / 50) * 50;
+            }
+            
+            // Если цена меньше 5000 - округляем до 100
+            if (price < 5000) {
+                return Math.round(price / 100) * 100;
+            }
+            
+            // Если цена меньше 10000 - округляем до 250
+            if (price < 10000) {
+                return Math.round(price / 250) * 250;
+            }
+            
+            // Если цена меньше 50000 - округляем до 500
+            if (price < 50000) {
+                return Math.round(price / 500) * 500;
+            }
+            
+            // Для больших цен - округляем до 1000
+            return Math.round(price / 1000) * 1000;
+        }
             if (str === null || str === undefined) return '';
             return String(str)
                 .replace(/&/g, '&amp;')
