@@ -709,7 +709,9 @@
         }
         
         function escapeXML(str) {
-            if (str === null || str === undefined) return '';
+            if (str === null || str === undefined) {
+                return '';
+            }
             return String(str)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
@@ -722,4 +724,3 @@
             const outputDiv = document.getElementById('output');
             outputDiv.innerHTML = '<div class="output"><h3>📄 Сгенерированный YML каталог:</h3><div class="xml-output">' + escapeHTML(ymlData) + '</div></div>';
         }
-        
